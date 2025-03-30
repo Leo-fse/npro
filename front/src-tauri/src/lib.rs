@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 use tempfile::tempdir;
 use zip::read::ZipArchive;
 use serde::Serialize;
