@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
 import FolderSelectButton from "./FolderSelectButton";
 import FolderDisplay from "./FolderDisplay";
 
@@ -29,7 +30,8 @@ const CSVImporter = () => {
     customFields: [],
   });
   const [isImporting, setIsImporting] = useState(false);
-  const [importStatus, setImportStatus] = useState(null); // success, error, null
+  const [loading, setLoading] = useState(false);
+  const [importStatus, setImportStatus] = useState(null); // success, error, warning, info, null
   const [importMessage, setImportMessage] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const folderDisplayRef = useRef(null);
@@ -132,9 +134,68 @@ const CSVImporter = () => {
     }
   };
 
+  // ZIPファイル処理関数
+  const handleZipFile = async (zipFilePath) => {
+    try {
+      setLoading(true);
+      
+      // ZIPファイルからCSVファイルを展開
+      const extractedFiles = await invoke("extract_zip", { zipPath: zipFilePath });
+      
+      // 展開されたCSVファイルを処理
+      if (extractedFiles && extractedFiles.length > 0) {
+        // 展開されたCSVファイルをインポート処理用のファイルリストに追加
+        const mappedFiles = extractedFiles.map(file => ({
+          name: file.name.split('/').pop() || file.name, // ファイル名のみを抽出
+          path: file.path,
+          isFromZip: true, // ZIPから展開されたことを示すフラグ
+          size: 0, // ファイルサイズ情報は不明
+          mtime: Date.now(),
+        }));
+        
+        setSelectedFiles(mappedFiles);
+        setImportStatus("info");
+        setImportMessage(`ZIPファイルから${extractedFiles.length}件のCSV/TSV/TXTファイルを抽出しました`);
+        return true;
+      } else {
+        setImportStatus("error");
+        setImportMessage("ZIPファイル内にCSV/TSV/TXTファイルが見つかりませんでした");
+        return false;
+      }
+    } catch (error) {
+      console.error("ZIPファイル処理エラー:", error);
+      setImportStatus("error");
+      setImportMessage(`ZIPファイルの処理中にエラーが発生しました: ${error}`);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ファイル選択処理
-  const handleFileSelection = (files) => {
-    setSelectedFiles(files);
+  const handleFileSelection = async (files) => {
+    // ステータスをリセット
+    setImportStatus(null);
+    setImportMessage("");
+    
+    // ZIPファイルが選択されたかをチェック
+    const zipFiles = files.filter(file => file.name.toLowerCase().endsWith('.zip'));
+    
+    if (zipFiles.length > 0) {
+      // ZIPファイルがある場合は特別な処理
+      if (zipFiles.length === 1) {
+        // 1つのZIPファイルのみ処理
+        await handleZipFile(zipFiles[0].path);
+      } else {
+        // 複数のZIPファイルがある場合は最初のものだけ処理
+        setImportStatus("warning");
+        setImportMessage("複数のZIPファイルが選択されましたが、最初の1つのみ処理します");
+        await handleZipFile(zipFiles[0].path);
+      }
+    } else {
+      // 通常のファイル選択処理
+      setSelectedFiles(files);
+    }
   };
 
   // 次のステップに進む
@@ -170,11 +231,17 @@ const CSVImporter = () => {
       // モックの処理（実際の実装に置き換える）
       await new Promise(resolve => setTimeout(resolve, 2000)); // 処理を模擬
       
+      // ZIPから展開されたファイルの場合も同様に処理
+      const zipFiles = selectedFiles.filter(file => file.isFromZip);
+      const normalFiles = selectedFiles.filter(file => !file.isFromZip);
+      
       console.log('取り込み実行:', { 
         folder, 
         fileConditions, 
         metaInfo,
-        selectedFiles
+        zipFiles,
+        normalFiles,
+        totalFiles: selectedFiles.length
       });
       
       setImportStatus("success");
@@ -333,6 +400,7 @@ const CSVImporter = () => {
                   <option value="csv">CSV (.csv)</option>
                   <option value="txt">テキスト (.txt)</option>
                   <option value="tsv">TSV (.tsv)</option>
+                  <option value="zip">ZIP (.zip)</option>
                 </select>
               </div>
             </div>
@@ -382,7 +450,52 @@ const CSVImporter = () => {
             )}
 
             {/* ファイルリスト表示 */}
-            <div className="mt-2">
+            <div className="mt-2 relative">
+              {loading && (
+                <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center z-10 rounded-lg">
+                  <div className="flex flex-col items-center">
+                    <svg className="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">ZIPファイル処理中...</p>
+                  </div>
+                </div>
+              )}
+              
+              {importStatus === "info" && (
+                <div className="mb-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm">{importMessage}</p>
+                  </div>
+                </div>
+              )}
+              
+              {importStatus === "warning" && (
+                <div className="mb-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <p className="text-sm">{importMessage}</p>
+                  </div>
+                </div>
+              )}
+              
+              {importStatus === "error" && (
+                <div className="mb-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm">{importMessage}</p>
+                  </div>
+                </div>
+              )}
+              
               <FolderDisplay
                 ref={folderDisplayRef}
                 folder={folder}
