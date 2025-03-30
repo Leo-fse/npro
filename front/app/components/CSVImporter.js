@@ -1,8 +1,23 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
 import FolderSelectButton from "./FolderSelectButton";
 import FolderDisplay from "./FolderDisplay";
+
+// クライアントサイドでのみTauri APIをインポート
+let invoke;
+if (typeof window !== 'undefined') {
+  // ブラウザ環境でのみインポート
+  try {
+    const tauri = require('@tauri-apps/api/tauri');
+    invoke = tauri.invoke;
+  } catch (e) {
+    // Tauri APIが利用できない環境の場合
+    console.warn('Tauri API is not available in this environment');
+    invoke = async () => {
+      throw new Error('Tauri API is not available');
+    };
+  }
+}
 
 /**
  * CSVインポートコンポーネント
@@ -138,6 +153,13 @@ const CSVImporter = () => {
   const handleZipFile = async (zipFilePath) => {
     try {
       setLoading(true);
+      
+      // Tauri環境かどうかチェック
+      if (!invoke) {
+        setImportStatus("error");
+        setImportMessage("ZIPファイル処理はTauriアプリでのみ利用可能です");
+        return false;
+      }
       
       // ZIPファイルからCSVファイルを展開
       const extractedFiles = await invoke("extract_zip", { zipPath: zipFilePath });
