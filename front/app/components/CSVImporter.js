@@ -31,7 +31,7 @@ const CSVImporter = () => {
   const [folder, setFolder] = useState(null);
   const [fileConditions, setFileConditions] = useState({
     fileNamePattern: "",
-    includePatterns: [], // OR条件で複数のパターンを指定
+    includePatterns: ["User", "Cond"], // デフォルトでUserとCondを指定
     fileExtension: "csv",
     includeZip: true, // ZIPファイルも含めるかどうか（デフォルトはtrue）
   });
@@ -937,7 +937,7 @@ const CSVImporter = () => {
                     setFolder(null);
                     setFileConditions({
                       fileNamePattern: "",
-                      includePatterns: [],
+                      includePatterns: ["User", "Cond"], // デフォルトパターンをリセット時も維持
                       fileExtension: "csv",
                       includeZip: true,
                     });

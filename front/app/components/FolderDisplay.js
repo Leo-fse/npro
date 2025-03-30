@@ -139,14 +139,43 @@ const FolderDisplay = forwardRef(({
         }));
       
       setAllFiles(fileEntries);
-      // 新しいファイルリストで選択状態をリセット
-      setSelectedFiles([]);
-      setSelectAll(false);
       
-      // 親コンポーネントに選択ファイルの変更を通知
-      if (onFileSelect) {
-        onFileSelect([]);
-      }
+      // フィルタリングされたファイルリストが更新されるのを待つために
+      // 次のフレームでファイル選択処理を行う
+      setTimeout(() => {
+        // フィルタリングされたファイルを全選択状態にする
+        if (fileEntries.length > 0) {
+          // filteredFilesはuseMemoで計算されるため直接アクセスできない
+          // 代わりにallFilesに対して同じフィルタリングを適用
+          const { fileExtension = "csv", includeZip = true } = fileConditions;
+          const filtered = fileEntries.filter(file => {
+            const fileExt = file.name.toLowerCase().split('.').pop();
+            const isZipFile = fileExt === 'zip';
+            const isRequestedExt = fileExt === fileExtension;
+            
+            if (includeZip) {
+              return isRequestedExt || isZipFile;
+            } else {
+              return isRequestedExt;
+            }
+          });
+          
+          setSelectedFiles(filtered);
+          setSelectAll(true);
+          
+          // 親コンポーネントに選択ファイルの変更を通知
+          if (onFileSelect) {
+            onFileSelect(filtered);
+          }
+        } else {
+          setSelectedFiles([]);
+          setSelectAll(false);
+          
+          if (onFileSelect) {
+            onFileSelect([]);
+          }
+        }
+      }, 0);
     } catch (err) {
       console.error("フォルダ内のファイル読み込みエラー:", err);
       setError("フォルダ内のファイルを読み込めませんでした");
