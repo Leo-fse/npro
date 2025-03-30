@@ -48,7 +48,8 @@ const FolderDisplay = forwardRef(({
 
     const {
       fileNamePattern = "",
-      fileExtension = "csv"
+      fileExtension = "csv",
+      includeZip = true
     } = fileConditions;
 
     // 正規表現パターンを作成
@@ -58,10 +59,22 @@ const FolderDisplay = forwardRef(({
     let filtered = allFiles.filter(file => {
       const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
       const fileName = file.name;
+      const fileExt = fileName.toLowerCase().split('.').pop();
       
-      // 拡張子チェック
-      const hasCorrectExtension = fileName.toLowerCase().endsWith(`.${fileExtension}`);
-      if (!hasCorrectExtension) return false;
+      // 拡張子チェック（ZIPファイルの場合は特別処理）
+      const isZipFile = fileExt === 'zip';
+      const isRequestedExt = fileExt === fileExtension;
+      
+      // ZIP含むかどうかのチェックボックスに従って判定
+      // - 含む場合: 指定された拡張子またはZIP
+      // - 含まない場合: 指定された拡張子のみ
+      if (includeZip) {
+        // ZIPも含める場合
+        if (!isRequestedExt && !isZipFile) return false;
+      } else {
+        // ZIPを含めない場合
+        if (!isRequestedExt) return false;
+      }
       
       // OR条件でパターンチェック
       const includePatterns = fileConditions.includePatterns || [];

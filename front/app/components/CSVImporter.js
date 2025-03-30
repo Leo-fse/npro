@@ -33,6 +33,7 @@ const CSVImporter = () => {
     fileNamePattern: "",
     includePatterns: [], // OR条件で複数のパターンを指定
     fileExtension: "csv",
+    includeZip: true, // ZIPファイルも含めるかどうか（デフォルトはtrue）
   });
   const [shouldFetchFiles, setShouldFetchFiles] = useState(false);
   const [metaInfo, setMetaInfo] = useState({
@@ -422,8 +423,23 @@ const CSVImporter = () => {
                   <option value="csv">CSV (.csv)</option>
                   <option value="txt">テキスト (.txt)</option>
                   <option value="tsv">TSV (.tsv)</option>
-                  <option value="zip">ZIP (.zip)</option>
                 </select>
+                
+                <div className="mt-3">
+                  <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      name="includeZip"
+                      checked={fileConditions.includeZip}
+                      onChange={(e) => setFileConditions(prev => ({...prev, includeZip: e.target.checked}))}
+                      className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    ZIP化されたファイルも含める
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                    チェックを入れると、ZIP内の{fileConditions.fileExtension.toUpperCase()}ファイルも取り込み対象になります
+                  </p>
+                </div>
               </div>
             </div>
             
@@ -861,7 +877,14 @@ const CSVImporter = () => {
                         <svg className="w-3 h-3 mr-1 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <span className="text-gray-700 dark:text-gray-300">{file.name}</span>
+                        <span className="text-gray-700 dark:text-gray-300">
+                          {file.name}
+                          {file.isFromZip && (
+                            <span className="ml-1 text-xs text-blue-500 dark:text-blue-300 font-medium">
+                              (ZIP展開)
+                            </span>
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -916,6 +939,7 @@ const CSVImporter = () => {
                       fileNamePattern: "",
                       includePatterns: [],
                       fileExtension: "csv",
+                      includeZip: true,
                     });
                     setMetaInfo({
                       title: "",
