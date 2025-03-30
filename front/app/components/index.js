@@ -4,3 +4,4 @@ export { default as FolderDisplay } from './FolderDisplay';
 export { default as FileManager } from './FileManager';
 export { default as FileSelectButton } from './FileSelectButton';
 export { default as FileDisplay } from './FileDisplay';
+export { default as QuillEditor } from './QuillEditor';
